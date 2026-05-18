@@ -26,6 +26,18 @@ class CanvasTrackerTest(unittest.TestCase):
         self.assertEqual(moved[0]["motion_from"]["x"], 100)
         self.assertGreater(moved[0]["x"], moved[0]["motion_from"]["x"])
 
+    def test_large_one_node_drag_keeps_id_by_shape_similarity(self) -> None:
+        tracker = CanvasTracker()
+
+        tracker.update([_node(100, 100)], step=1)
+        moved = tracker.update([_node(500, 400)], step=2)
+
+        self.assertEqual(moved[0]["id"], "Observed_Node_1")
+        self.assertEqual(
+            tracker.last_diagnostics["matches"][0]["match_type"],
+            "single_shape",
+        )
+
     def test_deleted_rectangle_is_reported(self) -> None:
         tracker = CanvasTracker()
 

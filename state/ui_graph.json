@@ -1,142 +1,154 @@
 {
   "ui_elements": {
-    "unknown_Tool": {
-      "x": 35,
-      "y": 293,
-      "w": 10,
-      "h": 10
-    },
     "Rectangle_Tool": {
       "x": 36,
-      "y": 401,
+      "y": 299,
       "w": 32,
-      "h": 17
-    },
-    "Corner_Tool": {
-      "x": 150,
-      "y": 401,
-      "w": 31,
-      "h": 17
-    },
-    "Rectangle_Tool_1": {
-      "x": 36,
-      "y": 440,
-      "w": 31,
       "h": 17
     },
     "Rounded_Rectangle_Tool": {
       "x": 74,
-      "y": 440,
-      "w": 31,
-      "h": 17
-    },
-    "Rounded_Rectangle_Tool_1": {
-      "x": 112,
-      "y": 440,
-      "w": 31,
-      "h": 17
-    },
-    "Rectangle_Tool_2": {
-      "x": 150,
-      "y": 440,
-      "w": 31,
-      "h": 17
-    },
-    "Rounded_Rectangle_Tool_2": {
-      "x": 181,
-      "y": 440,
-      "w": 17,
-      "h": 17
-    },
-    "Star_Tool": {
-      "x": 36,
-      "y": 479,
+      "y": 299,
       "w": 32,
-      "h": 29
+      "h": 17
     },
-    "Star_Tool_1": {
+    "Ellipse_Tool": {
+      "x": 181,
+      "y": 299,
+      "w": 17,
+      "h": 22
+    },
+    "Rectangle_Tool_1": {
+      "x": 36,
+      "y": 338,
+      "w": 32,
+      "h": 17
+    },
+    "Diamond_Tool": {
       "x": 74,
-      "y": 479,
-      "w": 31,
+      "y": 338,
+      "w": 30,
       "h": 30
     },
-    "Banner_Tool": {
+    "Parallelogram_Tool": {
       "x": 112,
-      "y": 479,
+      "y": 338,
       "w": 32,
       "h": 17
     },
-    "Cloud_Tool": {
+    "Hexagon_Tool": {
       "x": 150,
-      "y": 479,
+      "y": 338,
       "w": 31,
       "h": 22
     },
-    "Rounded_Rectangle_Tool_3": {
-      "x": 181,
-      "y": 479,
-      "w": 17,
-      "h": 24
-    },
-    "Note_Tool": {
-      "x": 36,
-      "y": 518,
-      "w": 29,
+    "Arrow_Tool": {
+      "x": 183,
+      "y": 338,
+      "w": 13,
       "h": 30
     },
-    "Cylinder_Tool": {
+    "Rounded_Rectangle_Tool_1": {
+      "x": 36,
+      "y": 377,
+      "w": 31,
+      "h": 21
+    },
+    "Rectangle_Tool_2": {
       "x": 74,
-      "y": 518,
+      "y": 377,
       "w": 30,
       "h": 30
     },
-    "Drop_Tool": {
+    "Cube_Tool": {
       "x": 112,
-      "y": 518,
-      "w": 22,
-      "h": 30
+      "y": 377,
+      "w": 31,
+      "h": 22
     },
-    "Lightning_Tool": {
+    "Arrow_Tool_1": {
       "x": 150,
-      "y": 518,
-      "w": 19,
-      "h": 30
+      "y": 377,
+      "w": 31,
+      "h": 22
     },
-    "Half_Circle_Tool": {
+    "Parallelogram_Tool_1": {
       "x": 181,
-      "y": 518,
+      "y": 377,
       "w": 17,
       "h": 17
     },
-    "Cloud_Tool_1": {
-      "x": 70,
-      "y": 551,
-      "w": 11,
-      "h": 18
-    },
-    "Circle_Tool": {
-      "x": 112,
-      "y": 551,
-      "w": 30,
-      "h": 17
-    },
-    "Octagon_Tool": {
-      "x": 150,
-      "y": 551,
-      "w": 30,
-      "h": 17
-    },
-    "Triangle_Tool": {
-      "x": 181,
-      "y": 552,
-      "w": 17,
-      "h": 14
-    },
-    "Cloud_Tool_2": {
+    "Rectangle_Tool_3": {
       "x": 36,
-      "y": 553,
+      "y": 416,
+      "w": 24,
+      "h": 30
+    },
+    "Person_Tool": {
+      "x": 112,
+      "y": 416,
+      "w": 15,
+      "h": 29
+    },
+    "Rounded_Rectangle_Tool_2": {
+      "x": 150,
+      "y": 416,
+      "w": 23,
+      "h": 30
+    },
+    "Rounded_Rectangle_Tool_3": {
+      "x": 183,
+      "y": 416,
+      "w": 13,
+      "h": 30
+    },
+    "Speech_Bubble_Tool": {
+      "x": 74,
+      "y": 417,
+      "w": 31,
+      "h": 23
+    },
+    "Rectangle_Tool_4": {
+      "x": 36,
+      "y": 455,
+      "w": 29,
+      "h": 29
+    },
+    "Rectangle_Tool_5": {
+      "x": 74,
+      "y": 455,
+      "w": 29,
+      "h": 29
+    },
+    "Rectangle_Tool_6": {
+      "x": 112,
+      "y": 455,
       "w": 32,
-      "h": 13
+      "h": 28
+    },
+    "Arrow_Tool_2": {
+      "x": 36,
+      "y": 494,
+      "w": 28,
+      "h": 28
+    },
+    "Line_Tool": {
+      "x": 112,
+      "y": 494,
+      "w": 28,
+      "h": 28
+    },
+    "Arrow_Tool_3": {
+      "x": 150,
+      "y": 494,
+      "w": 23,
+      "h": 23
+    },
+    "Arrow_Tool_4": {
+      "x": 183,
+      "y": 498,
+      "w": 13,
+      "h": 14
     }
   }
 }

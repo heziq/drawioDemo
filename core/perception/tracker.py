@@ -27,6 +27,27 @@ class CanvasTracker:
         matched_raw: set[int] = set()
         tracked_nodes: List[Dict[str, Any]] = []
 
+        if len(self._tracks) == 1 and len(raw_nodes) == 1:
+            track_id, prev = next(iter(self._tracks.items()))
+            raw = raw_nodes[0]
+            shape_score = _shape_similarity(prev, raw)
+            if shape_score >= 0.88:
+                node = _tracked_node(raw, track_id, "matched", step, prev)
+                self._tracks = {track_id: node}
+                self.last_diagnostics = {
+                    "matches": [{
+                        "track_id": track_id,
+                        "raw_detection_id": raw.get("raw_detection_id"),
+                        "score": round(float(shape_score), 3),
+                        "match_type": "single_shape",
+                        "from": _pos(prev),
+                        "to": _pos(node),
+                    }],
+                    "new_tracks": [],
+                    "deleted_tracks": [],
+                }
+                return [node]
+
         pairs = []
         for raw_idx, raw in enumerate(raw_nodes):
             for track_id, prev in self._tracks.items():
@@ -105,12 +126,28 @@ def _match_score(prev: Dict[str, Any], raw: Dict[str, Any]) -> float:
     return 0.45 * distance_score + 0.35 * size_score + 0.20 * iou
 
 
+def _shape_similarity(a: Dict[str, Any], b: Dict[str, Any]) -> float:
+    size_score = _size_similarity(a, b)
+    density_score = _metric_similarity(a, b, "stroke_density")
+    rectangularity_score = _metric_similarity(a, b, "rectangularity")
+    return 0.60 * size_score + 0.20 * density_score + 0.20 * rectangularity_score
+
+
 def _size_similarity(a: Dict[str, Any], b: Dict[str, Any]) -> float:
     aw, ah = max(a.get("w", 1), 1), max(a.get("h", 1), 1)
     bw, bh = max(b.get("w", 1), 1), max(b.get("h", 1), 1)
     width_ratio = min(aw, bw) / max(aw, bw)
     height_ratio = min(ah, bh) / max(ah, bh)
     return (width_ratio + height_ratio) / 2
+
+
+def _metric_similarity(a: Dict[str, Any], b: Dict[str, Any], key: str) -> float:
+    av = a.get(key)
+    bv = b.get(key)
+    if av is None or bv is None:
+        return 1.0
+    denom = max(abs(float(av)), abs(float(bv)), 0.001)
+    return max(0.0, 1.0 - abs(float(av) - float(bv)) / denom)
 
 
 def _bbox_iou(a: Dict[str, Any], b: Dict[str, Any]) -> float:

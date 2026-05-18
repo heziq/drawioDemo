@@ -47,6 +47,20 @@ class VerificationTest(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertEqual(result["reason"], "target_node_disappeared_after_delete")
 
+    def test_drag_reidentifies_same_sized_node_in_expected_direction(self) -> None:
+        result = _verify(
+            "move_node_to_zone_and_deselect",
+            {"node_ref": "Observed_Node_1", "zone": "lower_right"},
+            _graph([_node("Observed_Node_1", 100, 100)]),
+            _graph([_node("Observed_Node_2", 240, 220)]),
+            changed=True,
+        )
+
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["confidence"], "weak")
+        self.assertEqual(result["reason"], "target_node_reidentified_after_drag")
+        self.assertEqual(result["reidentified_node_id"], "Observed_Node_2")
+
     def test_text_action_remains_weak(self) -> None:
         result = _verify(
             "type_label",

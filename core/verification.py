@@ -113,6 +113,17 @@ def _verify_drag(
     before_node = _find_node(before_graph, target)
     after_node = _find_node(after_graph, target)
     if not before_node or not after_node:
+        fallback = _drag_reidentified_candidate(params, before_node, after_graph)
+        if fallback:
+            return _result(
+                True,
+                "target_node_reidentified_after_drag",
+                before_count,
+                after_count,
+                changed,
+                confidence="weak",
+                **fallback,
+            )
         return _result(False, "target_node_not_tracked_across_drag",
                        before_count, after_count, changed,
                        target_node_id=target)
@@ -151,6 +162,43 @@ def _find_node(graph: Dict[str, Any], ref: str | None) -> Dict[str, Any] | None:
         if node.get("id") == ref or node.get("text") == ref:
             return node
     return None
+
+
+def _drag_reidentified_candidate(
+    params: Dict[str, Any],
+    before_node: Dict[str, Any] | None,
+    after_graph: Dict[str, Any],
+) -> Dict[str, Any] | None:
+    if not before_node:
+        return None
+    candidates = [
+        node for node in after_graph.get("Canvas_Nodes", [])
+        if _same_size(before_node, node)
+    ]
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    dx = candidate["x"] - before_node["x"]
+    dy = candidate["y"] - before_node["y"]
+    expected = _expected_direction(params.get("zone"))
+    if expected and not _direction_matches(dx, dy, expected):
+        return None
+    if not expected and abs(dx) < 8 and abs(dy) < 8:
+        return None
+    return {
+        "target_node_id": params.get("node_ref"),
+        "reidentified_node_id": candidate.get("id"),
+        "before_position": _position(before_node),
+        "after_position": _position(candidate),
+        "expected_direction": expected,
+        "movement_delta": {"dx": dx, "dy": dy},
+    }
+
+
+def _same_size(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    aw, ah = max(a.get("w", 1), 1), max(a.get("h", 1), 1)
+    bw, bh = max(b.get("w", 1), 1), max(b.get("h", 1), 1)
+    return abs(aw - bw) / max(aw, bw) <= 0.15 and abs(ah - bh) / max(ah, bh) <= 0.15
 
 
 def _position(node: Dict[str, Any]) -> Dict[str, Any]:

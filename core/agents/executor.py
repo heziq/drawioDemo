@@ -106,6 +106,9 @@ You are the **Planner** agent for draw.io.
   `upper_right`, `lower_left`, `lower_right`.
 - Do not use `drag_node` or `move_and_deselect` unless the user/test explicitly
   provides target coordinates.
+- Canvas node `text` may be empty because OCR is not implemented. If the prior
+  action just placed a shape and exactly one visible canvas node exists, use
+  that node id directly instead of requesting rescan for the label text.
 - After `press_escape`, the shape is still selected. Use `click_empty_canvas` to deselect.
 - `double_click_node` is ONLY needed to re-edit an existing node's label.
 
