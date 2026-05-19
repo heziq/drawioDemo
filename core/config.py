@@ -101,13 +101,15 @@ def ui_graph(
     """
     state = load_ui_state()
     cal = _cfg.get("calibration", {})
+    ui_elements = dict(state.get("ui_elements", {}))
+    ui_elements.update(cal.get("ui_element_overrides", {}))
     if canvas_nodes is None:
         canvas_nodes = cal.get("canvas_nodes", [])
         if screenshot_path is not None:
             from core.perception.canvas import observe_canvas
             canvas_nodes = observe_canvas(screenshot_path)
     return {
-        "UI_Elements": state.get("ui_elements", {}),
+        "UI_Elements": ui_elements,
         "Canvas_Nodes": canvas_nodes,
         "Canvas_Edges": cal.get("canvas_edges", []),
     }
@@ -115,6 +117,11 @@ def ui_graph(
 
 def empty_canvas_point() -> Tuple[int, int]:
     pt = _cfg["calibration"]["empty_canvas_point"]
+    return (pt[0], pt[1])
+
+
+def default_shape_point() -> Tuple[int, int]:
+    pt = _cfg.get("calibration", {}).get("default_shape_point", [750, 420])
     return (pt[0], pt[1])
 
 

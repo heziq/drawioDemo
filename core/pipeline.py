@@ -16,7 +16,8 @@ from core import config
 from core.capture import screenshot
 from core.agents.executor import build_prompt, infer
 from core.perception.canvas import (
-    annotate_canvas, observe_canvas_detailed, summarize_graph, tool_families,
+    annotate_canvas, annotate_node_layout, layout_issues,
+    observe_canvas_detailed, summarize_graph, tool_families,
 )
 from core.perception.tracker import CanvasTracker
 from core.tools import dispatch
@@ -199,10 +200,12 @@ def _runtime_graph(
     if tracker is not None:
         nodes = tracker.update(nodes, step)
         tracking = tracker.last_diagnostics
+    nodes = annotate_node_layout(nodes)
     return {
         "UI_Elements": base_graph.get("UI_Elements", {}),
         "Canvas_Nodes": nodes,
         "Canvas_Edges": base_graph.get("Canvas_Edges", []),
+        "Layout_Issues": layout_issues(nodes),
         "Tool_Families": tool_families(base_graph.get("UI_Elements", {})),
         "_canvas_detection": detail,
         "_canvas_tracking": tracking,

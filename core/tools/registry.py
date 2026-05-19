@@ -70,10 +70,39 @@ class ToolNode:
 def resolve_tool(ui_graph: Dict[str, Any], name: str) -> Tuple[int, int]:
     """Look up a sidebar tool's (x, y) from the UI graph."""
     elements = ui_graph.get("UI_Elements", {})
-    if name not in elements:
+    resolved_name = _resolve_tool_name(ui_graph, name)
+    if resolved_name not in elements:
         raise KeyError(f"Tool '{name}' not found. Available: {list(elements.keys())}")
-    e = elements[name]
+    e = elements[resolved_name]
     return e["x"], e["y"]
+
+
+def _resolve_tool_name(ui_graph: Dict[str, Any], name: str) -> str:
+    elements = ui_graph.get("UI_Elements", {})
+    if name in elements:
+        return name
+
+    families = ui_graph.get("Tool_Families", {})
+    family = families.get(name)
+    default = family.get("default") if isinstance(family, dict) else None
+    if default in elements:
+        return default
+
+    normalized = str(name).strip()
+    candidates = [normalized]
+    if not normalized.endswith("_Tool"):
+        candidates.append(f"{normalized}_Tool")
+    if normalized.endswith("_Family"):
+        family_default = families.get(normalized, {}).get("default")
+        if family_default:
+            candidates.append(family_default)
+
+    lowered = {k.lower(): k for k in elements}
+    for candidate in candidates:
+        exact = lowered.get(candidate.lower())
+        if exact:
+            return exact
+    return name
 
 
 def resolve_node(ui_graph: Dict[str, Any], ref: str) -> Dict[str, Any]:

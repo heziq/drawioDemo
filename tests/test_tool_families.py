@@ -8,17 +8,19 @@ from core.perception.canvas import tool_families
 
 class ToolFamiliesTest(unittest.TestCase):
     def test_repeated_rectangle_tools_create_family_with_unsuffixed_default(self) -> None:
-        families = tool_families({
-            "Rectangle_Tool": {},
-            "Rectangle_Tool_1": {},
-            "Cloud_Tool": {},
-        })
+        with patch("core.perception.canvas.config.tool_families", return_value={}):
+            families = tool_families({
+                "Rectangle_Tool": {},
+                "Rectangle_Tool_1": {},
+                "Cloud_Tool": {},
+            })
 
         self.assertEqual(families["Rectangle_Family"]["default"], "Rectangle_Tool")
         self.assertEqual(
             families["Rectangle_Family"]["candidates"],
             ["Rectangle_Tool", "Rectangle_Tool_1"],
         )
+        self.assertNotIn("Rectangle_Tool_Family", families)
 
     def test_configured_default_wins_when_candidate_exists(self) -> None:
         with patch("core.perception.canvas.config.tool_families", return_value={

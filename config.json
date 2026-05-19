@@ -9,6 +9,19 @@
   "calibration": {
     "canvas_nodes": [],
     "canvas_edges": [],
+    "ui_element_overrides": {
+      "Triangle_Tool": {
+        "x": 188,
+        "y": 338,
+        "w": 23,
+        "h": 30,
+        "source": "manual_sidebar_override"
+      }
+    },
+    "default_shape_point": [
+      750,
+      440
+    ],
     "empty_canvas_point": [
       600,
       400
@@ -32,8 +45,8 @@
     "sidebar_region": [
       0,
       480,
-      380,
-      1120
+      1200,
+      2200
     ],
     "canvas_region": [
       630,
@@ -59,6 +72,19 @@
         "Rectangle_Tool_3",
         "Rectangle_Tool_4",
         "Rectangle_Tool_5"
+      ]
+    },
+    "Triangle_Family": {
+      "default": "Triangle_Tool",
+      "candidates": [
+        "Triangle_Tool"
+      ]
+    },
+    "Person_Family": {
+      "default": "Stick_Figure_Tool",
+      "candidates": [
+        "Person_Tool",
+        "Stick_Figure_Tool"
       ]
     },
     "Ellipse_Family": {

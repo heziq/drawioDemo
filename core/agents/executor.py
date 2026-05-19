@@ -69,10 +69,21 @@ def _element_summary(ui_graph: Dict[str, Any]) -> str:
             source = n.get("source", "unknown")
             parts.append(
                 f"- id=`{n['id']}`, text=`{text}`, "
+                f"position=`{n.get('position', 'unknown')}`, "
                 f"confidence=`{confidence}`, source=`{source}`"
             )
     else:
         parts.append("Visible node count: 0")
+
+    issues = ui_graph.get("Layout_Issues", [])
+    if issues:
+        parts.append("\n### Layout Issues")
+        for issue in issues:
+            node_list = ", ".join(f"`{n}`" for n in issue.get("nodes", []))
+            parts.append(
+                f"- `{issue.get('type')}` severity=`{issue.get('severity')}` "
+                f"nodes={node_list}"
+            )
 
     edges = ui_graph.get("Canvas_Edges", [])
     if edges:
@@ -94,21 +105,81 @@ You are the **Planner** agent for draw.io.
 5. Output **exactly ONE tool call** per response.
 
 ## draw.io WORKFLOW (important!)
+- You are responsible for decomposing abstract drawing requests into concrete
+  component shapes and operations. The user should be able to say "draw a tree"
+  or "draw a tree with 2 triangles and 1 rectangle"; you must infer placement,
+  rotation, resizing, and arrangement steps.
 - For tasks like "add/place a rectangle labelled X", prefer
   `place_shape_then_edit_label` with `tool_name` and `label`.
 - `place_shape_then_edit_label` is more reliable because it explicitly enters
   label edit mode before typing.
+- `tool_name` parameters should normally be exact sidebar tool names from
+  "Sidebar Shapes" such as `Rectangle_Tool` or `Triangle_Tool`. Do not invent
+  names like `Triangle` or `General_shapes_panel_triangle`. Families are only
+  summaries; if a family is listed, use its exact `default` candidate.
 - Use raw `place_shape` followed by `type_label` only when the task explicitly
   asks for step-by-step primitive actions.
+- For multi-shape diagrams, prefer `place_shape_to_zone` over raw `place_shape`
+  so the newly inserted shape is moved away from Draw.io's default insertion
+  point before the next shape is added.
+- For vertical flowcharts, place boxes with zones `top`, `center`, and
+  `bottom` so they share the same vertical line. Do not use `upper_right` or
+  `lower_right` unless the task asks for right-side placement.
+- Use `connect_nodes` to draw arrows/connectors between two observed boxes.
+  Do not place `Arrow_Tool` as a standalone shape for flowchart connectors.
+  Connectors/arrow lines are not reliable `Canvas_Nodes`, so never invent a
+  new id such as `Observed_Node_4` for an arrow unless it appears in Observed
+  Canvas.
+- If Layout Issues report `not_vertically_aligned`, move boxes to `top`,
+  `center`, and `bottom` before adding connectors. If Layout Issues report
+  `overlap`, move one of the overlapping nodes away before continuing.
+- For nested/container diagrams, prefer `place_shape_in_node_slot` over
+  `place_shape_to_zone` for shapes that should appear inside another shape.
+  Valid slots are `top`, `middle`, and `bottom`.
+- For a traffic light, make a rectangle housing first, reshape it taller if
+  needed, then place three ellipse/circle lights with
+  `place_shape_in_node_slot` in `top`, `middle`, and `bottom`. Do not place
+  the lights in global canvas zones and do not flatten them manually.
 - For rearrange/move/drag tasks, prefer `move_node_to_zone_and_deselect` with
   `node_ref` and a named `zone`.
 - Valid zones: `center`, `left`, `right`, `top`, `bottom`, `upper_left`,
   `upper_right`, `lower_left`, `lower_right`.
+- For connected multi-part objects, zones are only a rough first placement.
+  After all required parts are visible, use `move_node_adjacent_and_deselect`
+  to attach or overlap components using named relations. Valid relations:
+  `attached_above`, `attached_below`, `attached_left`, `attached_right`,
+  `overlap_above`, `overlap_below`, `centered_on`.
 - Do not use `drag_node` or `move_and_deselect` unless the user/test explicitly
   provides target coordinates.
+- For rotation/turning tasks, use `rotate_node_90_and_deselect` with
+  `node_ref` and `direction`, usually `clockwise`. Do not invent hotkeys or
+  mouse gestures such as `ctrl+drag`.
+- For shape resizing/reshaping tasks, prefer `reshape_node_and_deselect`.
+  Select a named blue handle and drag it: use `bottom` with positive `delta_y`
+  to make a shape taller, `right` with positive `delta_x` to make it wider,
+  `left` with positive `delta_x` or `right` with negative `delta_x` to make it
+  narrower, and `bottom_right` to change width and height together.
+- For container objects such as traffic lights, first make the housing taller
+  with the `bottom` handle. Avoid aggressive narrowing unless the task requires
+  it; the housing must stay wide enough for internal shapes and for perception
+  to keep tracking the same node.
 - Canvas node `text` may be empty because OCR is not implemented. If the prior
   action just placed a shape and exactly one visible canvas node exists, use
   that node id directly instead of requesting rescan for the label text.
+- Draw.io often places every new sidebar shape at the same default canvas
+  location. For multi-shape diagrams, do not leave a newly placed shape at the
+  default point. Use `place_shape_to_zone` for each component, otherwise shapes
+  may overlap and perception may merge them into one node.
+- For tree-like diagrams, use this recipe unless the user says otherwise:
+  place the first exact default candidate from `Triangle_Family` with
+  `place_shape_to_zone` in `upper_right`, place the second triangle in `right`,
+  place the `Rectangle_Family` default in `lower_right`, resize the rectangle
+  to be tall/narrow if needed while it is still a separate detected node, then
+  assemble them into one connected object: move the second triangle
+  `overlap_below` the first triangle and move the rectangle `attached_below`
+  the lower triangle. Only rotate triangles if the user asks for
+  rotated/sideways foliage. A tree is not complete while its parts are merely
+  near each other; foliage and trunk should touch or overlap.
 - After `press_escape`, the shape is still selected. Use `click_empty_canvas` to deselect.
 - `double_click_node` is ONLY needed to re-edit an existing node's label.
 

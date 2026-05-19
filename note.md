@@ -601,7 +601,7 @@ Defines the `ToolNode` dataclass and the global `TOOL_CATALOG`. Key parts:
 
 ### `core/tools/primitives.py` — Leaf tools (L0)
 
-15 atomic GUI operations, each wrapping a single `pyautogui` call. All self-register at the bottom of the file. Public function aliases are exported for direct use in test scripts.
+17 atomic GUI operations, each wrapping a single `pyautogui` call. All self-register at the bottom of the file. Public function aliases are exported for direct use in test scripts.
 
 ### `domains/drawio/tools.py` — Compound tools (L1)
 
@@ -643,7 +643,7 @@ This is intentionally approximate. For v1, it is mainly used to answer "did a sh
 
 ### `core/perception/tracker.py` — Runtime canvas tracking
 
-`CanvasTracker` keeps `Observed_Node_N` stable within one pipeline run. It matches raw detections by center distance, size similarity, and bounding-box overlap, then records matched/new/deleted tracks in trace diagnostics.
+`CanvasTracker` keeps `Observed_Node_N` stable within one pipeline run. It matches raw detections by center distance, size similarity, and bounding-box overlap. For large one-node drags, it also allows a same-shape one-to-one match, then records matched/new/deleted tracks in trace diagnostics.
 
 ### `core/verification.py` — Post-action checks
 
@@ -651,6 +651,8 @@ This is intentionally approximate. For v1, it is mainly used to answer "did a sh
 
 - `place_shape` / `place_and_label` / `place_shape_then_edit_label`: new tracked node or node-count increase is a strong pass
 - drag/move tools: same tracked node moving in the expected direction is a strong pass
+- drag/move tools also have a weak re-identification fallback if the target ID is lost but exactly one same-sized node appears in the expected direction
+- rotation tools: target node size/aspect change is a strong pass, with image-change fallback
 - `delete_node`: target tracked node disappearing or node-count decrease is a strong pass
 - `type_label` / `edit_label`: canvas image change is a weak pass because OCR is not implemented yet
 - `press_escape`, `press_enter`, and `click_empty_canvas`: non-blocking weak pass unless dispatch failed
@@ -736,8 +738,8 @@ User: "Add a rectangle labelled Cache"
     │   core/capture.py → screenshot("step_01.png")
     │           │
     │           ▼
-    │   core/perception/canvas.py → observe_canvas("step_01.png")
-    │     │  Builds runtime Canvas_Nodes like Observed_Node_1
+    │   core/perception/canvas.py + tracker.py → observe + track canvas
+    │     │  Builds stable in-run Canvas_Nodes like Observed_Node_1
     │           │
     │           ▼
     │   core/agents/executor.py → infer(task, ui_graph, img_path)
@@ -804,6 +806,7 @@ User: "Add a rectangle labelled Cache"
   "calibration": {
     "canvas_nodes": [],                 // legacy/static fallback; runtime nodes come from screenshots
     "canvas_edges": [],                 // connections: currently static/empty in v1
+    "default_shape_point": [750, 440],  // logical px where Draw.io inserts new shapes
     "empty_canvas_point": [600, 400]    // logical pixel coord of blank canvas area
   },
 
@@ -824,8 +827,8 @@ User: "Add a rectangle labelled Cache"
   "explorer": {
     "model": "qwen3-vl:4b",           // VLM for icon labeling
     "screen_scale": 2,                 // 2 for Retina, 1 for non-Retina
-    "sidebar_region": [0, 480, 380, 1120], // [x1, y1, x2, y2] in PHYSICAL pixels
-    "canvas_region": [630, 326, 2350, 1540], // canvas crop in PHYSICAL pixels
+    "sidebar_region": [0, 480, 1200, 2200], // [x1, y1, x2, y2] in PHYSICAL pixels
+    "canvas_region": [630, 326, 2100, 1540], // canvas crop in PHYSICAL pixels
     "icon_size_range": [20, 70],       // min/max icon size in physical pixels
     "nms_distance": 20,                // deduplicate icons within this many logical px
     "label_timeout": 30,               // seconds before VLM request times out
@@ -843,6 +846,8 @@ If Draw.io moves or you change screen resolution:
 3. Find the pixel bounds of the shape sidebar (in **physical** pixels on Retina)
 4. Update `"sidebar_region": [x1, y1, x2, y2]` in `config.json`
 5. Re-run perception: `python tests/test_collect_icons.py --detect --label --write`
+
+If a stable sidebar tool is still missing after detection, add a temporary manual fallback under `calibration.ui_element_overrides`. Runtime graph loading merges these overrides after `state/ui_graph.json`, so dispatch can still resolve exact tools such as `Triangle_Tool`. Keep these overrides in config, not in `state/ui_graph.json`, so generated perception output remains reproducible.
 
 ### Recalibrating `canvas_region`
 
@@ -878,6 +883,12 @@ If Draw.io moves or you change screen resolution:
 
 Text recognition and edge detection are not implemented in this phase, so labels may remain empty and `Canvas_Edges` may remain empty. The contour mask is theme-aware: it looks for dark strokes on light canvases and bright strokes on dark canvases.
 
+The planner is instructed not to request a rescan only because `text` is empty. If the prior action placed a shape and exactly one visible node exists, it should use that `Observed_Node_N` id directly for follow-up move/edit/delete actions.
+
+Rotation is exposed as `rotate_node_90_and_deselect`; the planner should use that for "turn" or "rotate 90 degrees" requests instead of inventing hotkeys or mouse gestures such as `ctrl+drag`.
+
+The planner is also responsible for decomposing abstract drawing requests. For example, "draw a tree with 2 triangles and 1 rectangle" should become concrete steps: place triangle components with `place_shape_to_zone`, place a rectangle trunk, then assemble the pieces into one connected tree with `move_node_adjacent_and_deselect` relations such as `overlap_below` for foliage and `attached_below` for the trunk. The task is not complete if the parts are merely near each other.
+
 ---
 
 ## 8. Tool Reference
@@ -899,7 +910,11 @@ Text recognition and edge detection are not implemented in this phase, so labels
 | `drag_node`          | `node_ref`, `target_x`, `target_y`                   | Drag node to absolute position                   |
 | `drag_node_near`     | `node_ref`, `reference_node`, `offset_x`, `offset_y` | Drag node relative to another                    |
 | `drag_node_to_zone`  | `node_ref`, `zone`                                   | Drag node to a named canvas zone                 |
+| `drag_node_adjacent` | `node_ref`, `reference_node`, `relation`             | Drag node into a named relation with another node |
+| `drag_selected_to_zone` | `zone`                                            | Drag newly selected shape from default insertion point to a zone |
+| `rotate_node_90`     | `node_ref`, `direction`                              | Rotate node about 90 degrees                     |
 | `resize_node`        | `node_ref`, `new_width`, `new_height`                | Resize a node                                    |
+| `reshape_node`       | `node_ref`, `handle`, `delta_x`, `delta_y`           | Drag one of the 8 blue resize handles            |
 | `hotkey`             | `keys`                                               | Press a keyboard shortcut                        |
 | `undo`               | —                                                    | Cmd+Z                                            |
 
@@ -911,10 +926,14 @@ Text recognition and edge detection are not implemented in this phase, so labels
 | ------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
 | `place_and_label`   | `tool_name`, `label`               | place_shape → type_label → press_escape → click_empty_canvas                    |
 | `place_shape_then_edit_label` | `tool_name`, `label` | place_shape → press_escape → press_enter → select_all → type_label → press_escape → click_empty_canvas |
+| `place_shape_to_zone` | `tool_name`, `zone`              | place_shape → drag_selected_to_zone → press_escape → click_empty_canvas         |
 | `edit_label`        | `node_ref`, `new_label`            | double_click_node → select_all → type_label → press_escape → click_empty_canvas |
 | `delete_node`       | `node_ref`                         | click_node → press_delete → click_empty_canvas                                  |
 | `move_and_deselect` | `node_ref`, `target_x`, `target_y` | drag_node → click_empty_canvas                                                  |
 | `move_node_to_zone_and_deselect` | `node_ref`, `zone` | drag_node_to_zone → click_empty_canvas                                          |
+| `move_node_adjacent_and_deselect` | `node_ref`, `reference_node`, `relation` | drag_node_adjacent → click_empty_canvas                           |
+| `rotate_node_90_and_deselect` | `node_ref`, `direction` | rotate_node_90 → click_empty_canvas                                             |
+| `reshape_node_and_deselect` | `node_ref`, `handle`, `delta_x`, `delta_y` | reshape_node → click_empty_canvas                                  |
 
 
 ### Special signals (not tools, no params)

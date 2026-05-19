@@ -16,6 +16,8 @@ Operation Pipeline:
 
 The executor agent **never sees pixel coordinates** — it picks named tools. Stable sidebar tool coordinates come from `state/ui_graph.json`; dynamic canvas nodes are observed from screenshots and tracked with stable in-run IDs. The tool tree handles coordinate resolution.
 
+For abstract tasks, the planner is expected to decompose the request into concrete shape operations. For example, “draw a tree with 2 triangles and 1 rectangle” should become placed triangle components, a rectangle trunk, resizing if needed, and connected assembly using named adjacency relations like `overlap_below` and `attached_below`.
+
 ## Hierarchical tool tree
 
 Each tool is a **ToolNode** with its own execution logic and children.
@@ -39,6 +41,12 @@ L1 place_shape_then_edit_label(tool_name, label)  ← domains/drawio
   L0 press_escape()
   L0 click_empty_canvas()
 
+L1 place_shape_to_zone(tool_name, zone)           ← domains/drawio
+  L0 place_shape(tool_name)
+  L0 drag_selected_to_zone(zone)
+  L0 press_escape()
+  L0 click_empty_canvas()
+
 L1 edit_label(node_ref, new_label)                ← domains/drawio
   L0 double_click_node(node_ref)
   L0 select_all()
@@ -57,6 +65,18 @@ L1 move_and_deselect(node_ref, target_x, target_y) ← domains/drawio
 
 L1 move_node_to_zone_and_deselect(node_ref, zone) ← domains/drawio
   L0 drag_node_to_zone(node_ref, zone)
+  L0 click_empty_canvas()
+
+L1 move_node_adjacent_and_deselect(node_ref, reference_node, relation) ← domains/drawio
+  L0 drag_node_adjacent(node_ref, reference_node, relation)
+  L0 click_empty_canvas()
+
+L1 rotate_node_90_and_deselect(node_ref, direction) ← domains/drawio
+  L0 rotate_node_90(node_ref, direction)
+  L0 click_empty_canvas()
+
+L1 reshape_node_and_deselect(node_ref, handle, delta_x, delta_y) ← domains/drawio
+  L0 reshape_node(node_ref, handle, delta_x, delta_y)
   L0 click_empty_canvas()
 ```
 
@@ -134,7 +154,7 @@ Tests are ordered by dependency. Start from T1 and work down — each level requ
 ### T1 — No dependencies (import + schema)
 
 ```bash
-# Verify tool registry assembles (15 L0 + 6 L1 = 21 tools)
+# Verify tool registry assembles (19 L0 + 10 L1 = 29 tools)
 python -c "from core.tools import TOOL_CATALOG, print_tree; print(len(TOOL_CATALOG), 'tools'); print_tree()"
 
 # Verify config + ui_graph.json load
@@ -205,7 +225,7 @@ python main.py --task "Draw a rectangle labelled Cache" --dry-run
 python main.py --task "Draw a rectangle labelled Cache" --trace
 ```
 
-`--trace` writes one JSON file per step under `test_output/runs/<timestamp>/`, including screenshot paths, canvas annotation image paths, accepted/rejected canvas candidates, tracking diagnostics, tool-family defaults, prompt text, graph summaries, model decision, dispatch result, verification result, and history.
+`--trace` writes one JSON file per step under `test_output/runs/<timestamp>/`, including screenshot paths, canvas annotation image paths, accepted/rejected canvas candidates, tracking diagnostics, tool-family defaults, prompt text, graph summaries, model decision, dispatch result, verification result, and history. For drag tasks, verify `movement_delta`, `expected_direction`, and whether the target ID stayed stable.
 
 ---
 
@@ -213,12 +233,12 @@ python main.py --task "Draw a rectangle labelled Cache" --trace
 
 | File | Owner | Content |
 |------|-------|---------|
-| `config.json` | Manual | Domain selection, paths, models, executor timing, `sidebar_region`, `canvas_region`, perception params, and optional `tool_families` defaults |
+| `config.json` | Manual | Domain selection, paths, models, executor timing, `sidebar_region`, `canvas_region`, perception params, optional `tool_families` defaults, and `calibration.ui_element_overrides` for stable manual sidebar tool fallbacks |
 | `state/ui_graph.json` | Perception | Persistent sidebar tool positions and labels |
 
-Runtime canvas nodes are not written into `config.json` or `state/ui_graph.json`. During one main pipeline run, `core/perception/tracker.py` keeps `Observed_Node_N` IDs stable across screenshots by matching raw detections by center distance, size similarity, and bounding-box overlap.
+Runtime canvas nodes are not written into `config.json` or `state/ui_graph.json`. During one main pipeline run, `core/perception/tracker.py` keeps `Observed_Node_N` IDs stable across screenshots by matching raw detections by center distance, size similarity, and bounding-box overlap. For large one-node drags, it also allows a same-shape one-to-one match so the ID does not reset just because the node moved far.
 
-`explorer.canvas_region` is a configurable physical-pixel crop. The current default is tuned for one Draw.io window layout; if the window moves, recalibrate the config instead of editing code. Canvas perception supports light and dark Draw.io themes by switching stroke polarity from the screenshot crop brightness. Trace overlays draw the crop boundary, accepted nodes, rejected candidates, and motion arrows for tracked nodes.
+`explorer.sidebar_region` and `explorer.canvas_region` are configurable physical-pixel crops. The sidebar crop should cover the full visible shape palette; if it is too narrow, tools like `Triangle_Tool` may be absent from `state/ui_graph.json`. `calibration.ui_element_overrides` can provide manual fallback coordinates for stable sidebar tools, but the preferred durable fix is to recalibrate `sidebar_region` and re-run icon collection. Canvas perception supports light and dark Draw.io themes by switching stroke polarity from the screenshot crop brightness. Trace overlays draw the crop boundary, accepted nodes, rejected candidates, and motion arrows for tracked nodes.
 
 ---
 
@@ -264,4 +284,5 @@ register(N_MY_COMPOUND)
 | Uppercase letters drop during `type_label` | `pyautogui.typewrite` doesn't handle Shift; "Database" types as "atabase" | Replace with `pyautogui.write()` |
 | Text verification is weak | OCR/VLM text reading is not implemented for canvas labels | Add OCR/VLM label reading to `core/perception/canvas.py` |
 | Edge/connector state is empty | Canvas observer only detects simple closed shapes in v1 | Add edge detection and node matching across steps |
+| Canvas node `text` is often empty | OCR is deferred | Planner is instructed to use the visible `Observed_Node_N` ID after placement instead of requesting rescan for label text |
 | Sidebar label ambiguity (`Rectangle_Tool_1..6`) | VLM labels small crops without group context | Current prompt groups ambiguous families; future work should add tooltip-based disambiguation |

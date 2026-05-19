@@ -120,14 +120,15 @@ tests/
 - **`domain`** — active domain plugin name (e.g. `"drawio"`); controls which `domains/<name>/tools.py` is loaded
 - **`paths`** — `screenshots_dir`, `test_output_dir`, `state_dir`, `ui_graph_file` (relative paths)
 - **`calibration.canvas_nodes/edges`** — legacy/static canvas calibration; runtime pipeline now observes `Canvas_Nodes` from screenshots
+- **`calibration.ui_element_overrides`** — manual fallback sidebar tool coordinates merged after `state/ui_graph.json`
 - **`calibration.empty_canvas_point`** — pixel coord to click to deselect everything
 - **`llm.model`** — Ollama model name for the planner; `llm.max_steps` — loop iteration limit
 - **`executor`** — pyautogui timing: `pause`, `drag_duration`, `type_interval`, `step_cooldown`, `countdown_seconds`
-- **`explorer`** — perception pipeline: `model` (VLM for labeling), `screen_scale` (retina factor), `sidebar_region`, `canvas_region`, `icon_size_range`, `nms_distance`, `label_timeout`, `label_max_retries`
+- **`explorer`** — perception pipeline: `model` (VLM for labeling), `screen_scale` (retina factor), `sidebar_region`, `canvas_region`, `icon_size_range`, `nms_distance`, `label_timeout`, `label_max_retries`; `sidebar_region` should cover the full visible shape palette
 
 ### core/config.py: key accessors
 
-- `ui_graph(screenshot_path=...)` — merges `state/ui_graph.json` UI elements with runtime canvas observations; returns `{"UI_Elements": {...}, "Canvas_Nodes": [...], "Canvas_Edges": [...]}`
+- `ui_graph(screenshot_path=...)` — merges `state/ui_graph.json` UI elements, `calibration.ui_element_overrides`, and runtime canvas observations; returns `{"UI_Elements": {...}, "Canvas_Nodes": [...], "Canvas_Edges": [...]}`
 - `load_ui_state()` — reads `state/ui_graph.json` directly (returns `{}` if missing)
 - `canvas_region()` — returns the physical-pixel crop used by the runtime canvas observer
 - `domain()` — returns active domain plugin name
@@ -137,11 +138,11 @@ tests/
 
 Tools are split across three files and self-register at import time:
 
-**`core/tools/primitives.py` — Leaf tools (Level 0)**, 15 atomic GUI operations:
-`place_shape`, `type_label`, `press_escape`, `press_enter`, `press_delete`, `select_all`, `click_empty_canvas`, `click_node`, `double_click_node`, `drag_node`, `drag_node_near`, `drag_node_to_zone`, `resize_node`, `hotkey`, `undo`
+**`core/tools/primitives.py` — Leaf tools (Level 0)**, 19 atomic GUI operations:
+`place_shape`, `type_label`, `press_escape`, `press_enter`, `press_delete`, `select_all`, `click_empty_canvas`, `click_node`, `double_click_node`, `drag_node`, `drag_node_near`, `drag_node_to_zone`, `drag_node_adjacent`, `drag_selected_to_zone`, `rotate_node_90`, `resize_node`, `reshape_node`, `hotkey`, `undo`
 
 **`domains/drawio/tools.py` — Compound tools (Level 1)**, multi-step workflows:
-`place_and_label`, `place_shape_then_edit_label`, `edit_label`, `delete_node`, `move_and_deselect`, `move_node_to_zone_and_deselect`
+`place_and_label`, `place_shape_then_edit_label`, `place_shape_to_zone`, `edit_label`, `delete_node`, `move_and_deselect`, `move_node_to_zone_and_deselect`, `move_node_adjacent_and_deselect`, `rotate_node_90_and_deselect`, `reshape_node_and_deselect`
 
 **`core/tools/registry.py`** — `ToolNode` dataclass, `register()`, `dispatch()`, coordinate resolution helpers (`resolve_tool`, `resolve_node`).
 
@@ -181,7 +182,7 @@ Prompt includes: available tools (as markdown table), named sidebar tools, ambig
 
 ### core/verification.py: post-action checks
 
-`verify_action()` compares pre-action and post-action screenshots/observed graphs. Placement tools strongly pass when a new tracked node appears. Drag tools strongly pass when the same tracked node moves in the expected direction. `delete_node` strongly passes when the target tracked node disappears or node count decreases. For `type_label`, image change is a weak pass because OCR is not implemented yet. `text_placement` is currently recorded as `"unknown"`. Selection-only actions such as `press_escape` and `click_empty_canvas` are non-blocking in v1.
+`verify_action()` compares pre-action and post-action screenshots/observed graphs. Placement tools strongly pass when a new tracked node appears. Drag tools strongly pass when the same tracked node moves in the expected direction. Rotation tools pass when the target node geometry changes like a 90-degree turn, with image-change fallback. `delete_node` strongly passes when the target tracked node disappears or node count decreases. For `type_label`, image change is a weak pass because OCR is not implemented yet. `text_placement` is currently recorded as `"unknown"`. Selection-only actions such as `press_escape` and `click_empty_canvas` are non-blocking in v1.
 
 ### Trace diagnostics
 
